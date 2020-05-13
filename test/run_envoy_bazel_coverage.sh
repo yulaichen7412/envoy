@@ -5,6 +5,7 @@ set -e
 [[ -z "${SRCDIR}" ]] && SRCDIR="${PWD}"
 [[ -z "${VALIDATE_COVERAGE}" ]] && VALIDATE_COVERAGE=true
 [[ -z "${FUZZ_COVERAGE}" ]] && FUZZ_COVERAGE=false
+[[ -z "${COVERTURA}" ]] && COVERTURA=false
 
 echo "Starting run_envoy_bazel_coverage.sh..."
 echo "    PWD=$(pwd)"
@@ -38,6 +39,11 @@ mkdir -p "${COVERAGE_DIR}"
 COVERAGE_DATA="${COVERAGE_DIR}/coverage.dat"
 
 cp bazel-out/_coverage/_coverage_report.dat "${COVERAGE_DATA}"
+
+if [[ "${COVERTURA}" == "true" ]]; then
+  pip3 install -U lcov_cobertura
+  python3 -m lcov_cobertura "${COVERAGE_DATA}/coverage.dat" -b "${SRCDIR}" -o /dev/stdout | c++filt > "${COVERAGE_DIR}/coverage.xml"
+fi
 
 COVERAGE_VALUE=$(genhtml --prefix ${PWD} --output "${COVERAGE_DIR}" "${COVERAGE_DATA}" | tee /dev/stderr | grep lines... | cut -d ' ' -f 4)
 COVERAGE_VALUE=${COVERAGE_VALUE%?}

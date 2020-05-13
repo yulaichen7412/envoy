@@ -61,6 +61,11 @@ jobs:
           ciTarget: bazel.coverage
           rbe: ""
           bazelBuildExtraOptions: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --curses=no"
+      - task: PublishCodeCoverageResults@1
+        inputs:
+          codeCoverageTool: cobertura
+          summaryFileLocation: $(Build.StagingDirectory)/envoy/generated/coverage/coverage.xml
+          pathToSources: $(Build.SourcesDirectory)
   # - job: bazel
   #   displayName: "Linux-x64"
   #   dependsOn: ["release"]
