@@ -51,6 +51,7 @@ steps:
       BAZEL_REMOTE_CACHE: grpcs://remotebuildexecution.googleapis.com
       BAZEL_REMOTE_INSTANCE: projects/envoy-ci/instances/default_instance
       GCP_SERVICE_ACCOUNT_KEY: $(GcpServiceAccountKey)
+      BUILD_REASON: PullRequest
     displayName: "Run CI script"
 
   - bash: |

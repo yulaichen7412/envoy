@@ -33,7 +33,7 @@ fi
 
 bazel coverage ${BAZEL_BUILD_OPTIONS} --test_output=all ${COVERAGE_TARGETS}
 
-COVERAGE_DIR="${SRCDIR}"/generated/coverage
+COVERAGE_DIR=${ENVOY_COVERAGE_DIR:-${SRCDIR}/generated/coverage}
 mkdir -p "${COVERAGE_DIR}"
 
 COVERAGE_DATA="${COVERAGE_DIR}/coverage.dat"
@@ -47,8 +47,6 @@ fi
 
 COVERAGE_VALUE=$(genhtml --prefix ${PWD} --output "${COVERAGE_DIR}" "${COVERAGE_DATA}" | tee /dev/stderr | grep lines... | cut -d ' ' -f 4)
 COVERAGE_VALUE=${COVERAGE_VALUE%?}
-
-[[ -z "${ENVOY_COVERAGE_DIR}" ]] || rsync -av "${COVERAGE_DIR}"/ "${ENVOY_COVERAGE_DIR}"
 
 if [[ "$VALIDATE_COVERAGE" == "true" ]]; then
   if [[ "${FUZZ_COVERAGE}" == "true" ]]; then
