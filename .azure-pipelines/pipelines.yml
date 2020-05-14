@@ -51,20 +51,20 @@ jobs:
   #         ciTarget: bazel.release
 
   - job: coverage
-    displayName: "Linux-x64 coverage"
+    displayName: "Linux-x64 coverage report"
     dependsOn: []
-    pool: "x64-large"
+    # pool: "x64-large"
     steps:
-      - template: bazel.yml
-        parameters:
-          managedAgent: false
-          ciTarget: bazel.coverage
-          rbe: ""
-          bazelBuildExtraOptions: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --curses=no"
+      # - template: bazel.yml
+      #   parameters:
+      #     managedAgent: false
+      #     ciTarget: bazel.coverage
+      #     rbe: ""
+      #     bazelBuildExtraOptions: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --curses=no"
       - task: PublishCodeCoverageResults@1
         inputs:
           codeCoverageTool: cobertura
-          summaryFileLocation: $(Build.StagingDirectory)/envoy/generated/coverage/coverage.xml
+          summaryFileLocation: $(Build.SourcesDirectory)/coverage.xml
           pathToSources: $(Build.SourcesDirectory)
   # - job: bazel
   #   displayName: "Linux-x64"
