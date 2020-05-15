@@ -53,7 +53,7 @@ jobs:
   - job: coverage
     displayName: "Linux-x64 coverage report"
     dependsOn: []
-    # pool: "x64-large"
+    pool: "x64-test"
     steps:
       # - template: bazel.yml
       #   parameters:
