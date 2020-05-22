@@ -17,9 +17,8 @@ namespace Http {
 
 /**
  * These are definitions of all of the inline header access functions described inside header_map.h
- * TODO(asraa): Simplify code here so macros expand into single virtual calls.
  */
-#define DEFINE_INLINE_HEADER_FUNCS(name)                                                           \
+/*#define DEFINE_INLINE_HEADER_FUNCS(name) \
 public:                                                                                            \
   const HeaderEntry* name() const override { return inline_headers_.name##_; }                     \
   void append##name(absl::string_view data, absl::string_view delimiter) override {                \
@@ -42,9 +41,19 @@ public:                                                                         
     entry.value().setInteger(value);                                                               \
     addSize(inline_headers_.name##_->value().size());                                              \
   }                                                                                                \
-  size_t remove##name() override { return removeInline(&inline_headers_.name##_); }
+  size_t remove##name() override { return removeInline(&inline_headers_.name##_); }*/
 
-#define DEFINE_INLINE_HEADER_STRUCT(name) HeaderEntryImpl* name##_;
+#define DEFINE_INLINE_HEADER_FUNCS(name)                                                           \
+public:                                                                                            \
+  const HeaderEntry* name() const override { return nullptr; }                                     \
+  void append##name(absl::string_view, absl::string_view) override {}                              \
+  void setReference##name(absl::string_view) override {}                                           \
+  void set##name(absl::string_view) override {}                                                    \
+  void set##name(uint64_t) override {}                                                             \
+  size_t remove##name() override { return 0; }
+
+// fixfix remove
+//#define DEFINE_INLINE_HEADER_STRUCT(name) HeaderEntryImpl* name##_;
 
 /**
  * Implementation of Http::HeaderMap. This is heavily optimized for performance. Roughly, when
@@ -52,11 +61,11 @@ public:                                                                         
  * If it is, we store a reference to it that can be accessed later directly. Most high performance
  * paths use O(1) direct access. In general, we try to copy as little as possible and allocate as
  * little as possible in any of the paths.
- * TODO(mattklein123): The end result of the header refactor should be to make this a fully
- *   protected base class or a mix-in for the concrete header types below.
  */
-class HeaderMapImpl : public virtual HeaderMap, NonCopyable {
+class HeaderMapImpl : NonCopyable {
 public:
+  virtual ~HeaderMapImpl() = default;
+
   // The following "constructors" call virtual functions during construction and must use the
   // static factory pattern.
   static void copyFrom(HeaderMap& lhs, const HeaderMap& rhs);
@@ -67,30 +76,33 @@ public:
   // Performs a manual byte size count for test verification.
   void verifyByteSizeInternalForTest() const;
 
-  // Http::HeaderMap
-  bool operator==(const HeaderMap& rhs) const override;
-  bool operator!=(const HeaderMap& rhs) const override;
-  void addViaMove(HeaderString&& key, HeaderString&& value) override;
-  void addReference(const LowerCaseString& key, absl::string_view value) override;
-  void addReferenceKey(const LowerCaseString& key, uint64_t value) override;
-  void addReferenceKey(const LowerCaseString& key, absl::string_view value) override;
-  void addCopy(const LowerCaseString& key, uint64_t value) override;
-  void addCopy(const LowerCaseString& key, absl::string_view value) override;
-  void appendCopy(const LowerCaseString& key, absl::string_view value) override;
-  void setReference(const LowerCaseString& key, absl::string_view value) override;
-  void setReferenceKey(const LowerCaseString& key, absl::string_view value) override;
-  void setCopy(const LowerCaseString& key, absl::string_view value) override;
-  uint64_t byteSize() const override;
-  const HeaderEntry* get(const LowerCaseString& key) const override;
-  void iterate(ConstIterateCb cb, void* context) const override;
-  void iterateReverse(ConstIterateCb cb, void* context) const override;
-  Lookup lookup(const LowerCaseString& key, const HeaderEntry** entry) const override;
-  void clear() override;
-  size_t remove(const LowerCaseString& key) override;
-  size_t removePrefix(const LowerCaseString& key) override;
-  size_t size() const override { return headers_.size(); }
-  bool empty() const override { return headers_.empty(); }
-  void dumpState(std::ostream& os, int indent_level = 0) const override;
+  // fixfix
+  virtual HeaderMap& toHeaderMap() PURE;
+
+  // fixfix Http::HeaderMap
+  bool operator==(const HeaderMap& rhs) const;
+  bool operator!=(const HeaderMap& rhs) const;
+  void addViaMove(HeaderString&& key, HeaderString&& value);
+  void addReference(const LowerCaseString& key, absl::string_view value);
+  void addReferenceKey(const LowerCaseString& key, uint64_t value);
+  void addReferenceKey(const LowerCaseString& key, absl::string_view value);
+  void addCopy(const LowerCaseString& key, uint64_t value);
+  void addCopy(const LowerCaseString& key, absl::string_view value);
+  void appendCopy(const LowerCaseString& key, absl::string_view value);
+  void setReference(const LowerCaseString& key, absl::string_view value);
+  void setReferenceKey(const LowerCaseString& key, absl::string_view value);
+  void setCopy(const LowerCaseString& key, absl::string_view value);
+  uint64_t byteSize() const;
+  const HeaderEntry* get(const LowerCaseString& key) const;
+  void iterate(HeaderMap::ConstIterateCb cb, void* context) const;
+  void iterateReverse(HeaderMap::ConstIterateCb cb, void* context) const;
+  HeaderMap::Lookup lookup(const LowerCaseString& key, const HeaderEntry** entry) const;
+  void clear();
+  size_t remove(const LowerCaseString& key);
+  size_t removePrefix(const LowerCaseString& key);
+  size_t size() const { return headers_.size(); }
+  bool empty() const { return headers_.empty(); }
+  void dumpState(std::ostream& os, int indent_level = 0) const;
 
 protected:
   struct HeaderEntryImpl : public HeaderEntry, NonCopyable {
@@ -219,13 +231,8 @@ protected:
   void updateSize(uint64_t from_size, uint64_t to_size);
   void addSize(uint64_t size);
   void subtractSize(uint64_t size);
-  virtual absl::optional<StaticLookupResponse> staticLookup(absl::string_view) {
-    // TODO(mattklein123): Make this pure once HeaderMapImpl is a base class only.
-    return absl::nullopt;
-  }
-  virtual void clearInline() {
-    // TODO(mattklein123): Make this pure once HeaderMapImpl is a base class only.
-  }
+  virtual absl::optional<StaticLookupResponse> staticLookup(absl::string_view) PURE;
+  virtual void clearInline() PURE;
 
   HeaderList headers_;
   // This holds the internal byte size of the HeaderMap.
@@ -235,100 +242,162 @@ protected:
 /**
  * Typed derived classes for all header map types.
  */
-class RequestHeaderMapImpl : public HeaderMapImpl, public RequestHeaderMap {
+template <class Interface> class TypedHeaderMapImpl : public HeaderMapImpl, public Interface {
 public:
+  bool operator==(const HeaderMap& rhs) const override { return HeaderMapImpl::operator==(rhs); }
+  bool operator!=(const HeaderMap& rhs) const override { return HeaderMapImpl::operator!=(rhs); }
+  void addViaMove(HeaderString&& key, HeaderString&& value) override {
+    HeaderMapImpl::addViaMove(std::move(key), std::move(value));
+  }
+  void addReference(const LowerCaseString& key, absl::string_view value) override {
+    HeaderMapImpl::addReference(key, value);
+  }
+  void addReferenceKey(const LowerCaseString& key, uint64_t value) override {
+    HeaderMapImpl::addReferenceKey(key, value);
+  }
+  void addReferenceKey(const LowerCaseString& key, absl::string_view value) override {
+    HeaderMapImpl::addReferenceKey(key, value);
+  }
+  void addCopy(const LowerCaseString& key, uint64_t value) override {
+    HeaderMapImpl::addCopy(key, value);
+  }
+  void addCopy(const LowerCaseString& key, absl::string_view value) override {
+    HeaderMapImpl::addCopy(key, value);
+  }
+  void appendCopy(const LowerCaseString& key, absl::string_view value) override {
+    HeaderMapImpl::appendCopy(key, value);
+  }
+  void setReference(const LowerCaseString& key, absl::string_view value) override {
+    HeaderMapImpl::setReference(key, value);
+  }
+  void setReferenceKey(const LowerCaseString& key, absl::string_view value) override {
+    HeaderMapImpl::setReferenceKey(key, value);
+  }
+  void setCopy(const LowerCaseString& key, absl::string_view value) override {
+    HeaderMapImpl::setCopy(key, value);
+  }
+  uint64_t byteSize() const override { return HeaderMapImpl::byteSize(); }
+  const HeaderEntry* get(const LowerCaseString& key) const override {
+    return HeaderMapImpl::get(key);
+  }
+  void iterate(HeaderMap::ConstIterateCb cb, void* context) const override {
+    HeaderMapImpl::iterate(cb, context);
+  }
+  void iterateReverse(HeaderMap::ConstIterateCb cb, void* context) const override {
+    HeaderMapImpl::iterateReverse(cb, context);
+  }
+  HeaderMap::Lookup lookup(const LowerCaseString& key, const HeaderEntry** entry) const override {
+    return HeaderMapImpl::lookup(key, entry);
+  }
+  void clear() override { HeaderMapImpl::clear(); }
+  size_t remove(const LowerCaseString& key) override { return HeaderMapImpl::remove(key); }
+  size_t removePrefix(const LowerCaseString& key) override {
+    return HeaderMapImpl::removePrefix(key);
+  }
+  size_t size() const override { return HeaderMapImpl::size(); }
+  bool empty() const override { return HeaderMapImpl::empty(); }
+  void dumpState(std::ostream& os, int indent_level = 0) const override {
+    HeaderMapImpl::dumpState(os, indent_level);
+  }
+
+protected:
+  static size_t inlineHeadersSize() {
+    return CustomInlineHeaderRegistry<Interface>::headers().size() * sizeof(HeaderEntryImpl);
+  }
+};
+
+class RequestHeaderMapImpl : public TypedHeaderMapImpl<RequestHeaderMap>, public InlineStorage {
+public:
+  static std::unique_ptr<RequestHeaderMapImpl> create() {
+    return std::unique_ptr<RequestHeaderMapImpl>(new (inlineHeadersSize()) RequestHeaderMapImpl());
+  }
+
+  HeaderMap& toHeaderMap() override { return *this; }
+
   INLINE_REQ_HEADERS(DEFINE_INLINE_HEADER_FUNCS)
   INLINE_REQ_RESP_HEADERS(DEFINE_INLINE_HEADER_FUNCS)
 
-protected:
-  // Explicit inline headers for the request header map.
-  // TODO(mattklein123): This is mostly copied between all of the concrete header map types.
-  // In a future change we can either get rid of O(1) headers completely, or it should be possible
-  // to statically register all O(1) headers and move to a single dynamically sized class where we
-  // we reference the O(1) headers in the table by an offset.
-  struct AllInlineHeaders {
-    AllInlineHeaders() { clear(); }
-    void clear() { memset(this, 0, sizeof(*this)); }
-
-    INLINE_REQ_HEADERS(DEFINE_INLINE_HEADER_STRUCT)
-    INLINE_REQ_RESP_HEADERS(DEFINE_INLINE_HEADER_STRUCT)
-  };
+private:
+  RequestHeaderMapImpl() { clearInlineHelper(); }
 
   absl::optional<StaticLookupResponse> staticLookup(absl::string_view key) override {
     return StaticLookupTable<RequestHeaderMapImpl>::lookup(*this, key);
   }
-  void clearInline() override { inline_headers_.clear(); }
+  void clearInline() override { clearInlineHelper(); }
+  void clearInlineHelper() { memset(inline_headers_, 0, inlineHeadersSize()); }
 
-  AllInlineHeaders inline_headers_;
-
-  friend class HeaderMapImpl;
+  HeaderEntryImpl* inline_headers_[];
 };
 
-class RequestTrailerMapImpl : public HeaderMapImpl, public RequestTrailerMap {};
-
-class ResponseHeaderMapImpl : public HeaderMapImpl, public ResponseHeaderMap {
+class RequestTrailerMapImpl : public TypedHeaderMapImpl<RequestTrailerMap> {
 public:
+  // fixfix support dynamic.
+  static std::unique_ptr<RequestTrailerMapImpl> create() {
+    return std::make_unique<RequestTrailerMapImpl>();
+  }
+
+  HeaderMap& toHeaderMap() override { return *this; }
+
+private:
+  absl::optional<StaticLookupResponse> staticLookup(absl::string_view) override {
+    return absl::nullopt;
+  }
+  void clearInline() override {}
+};
+
+class ResponseHeaderMapImpl : public TypedHeaderMapImpl<ResponseHeaderMap>, public InlineStorage {
+public:
+  static std::unique_ptr<ResponseHeaderMapImpl> create() {
+    return std::unique_ptr<ResponseHeaderMapImpl>(new (inlineHeadersSize())
+                                                      ResponseHeaderMapImpl());
+  }
+
+  HeaderMap& toHeaderMap() override { return static_cast<RequestOrResponseHeaderMap&>(*this); }
+
   INLINE_RESP_HEADERS(DEFINE_INLINE_HEADER_FUNCS)
   INLINE_REQ_RESP_HEADERS(DEFINE_INLINE_HEADER_FUNCS)
   INLINE_RESP_HEADERS_TRAILERS(DEFINE_INLINE_HEADER_FUNCS)
 
-protected:
-  // Explicit inline headers for the response header map.
-  // TODO(mattklein123): This is mostly copied between all of the concrete header map types.
-  // In a future change we can either get rid of O(1) headers completely, or it should be possible
-  // to statically register all O(1) headers and move to a single dynamically sized class where we
-  // we reference the O(1) headers in the table by an offset.
-  struct AllInlineHeaders {
-    AllInlineHeaders() { clear(); }
-    void clear() { memset(this, 0, sizeof(*this)); }
-
-    INLINE_RESP_HEADERS(DEFINE_INLINE_HEADER_STRUCT)
-    INLINE_REQ_RESP_HEADERS(DEFINE_INLINE_HEADER_STRUCT)
-    INLINE_RESP_HEADERS_TRAILERS(DEFINE_INLINE_HEADER_STRUCT)
-  };
+private:
+  ResponseHeaderMapImpl() { clearInlineHelper(); }
 
   absl::optional<StaticLookupResponse> staticLookup(absl::string_view key) override {
     return StaticLookupTable<ResponseHeaderMapImpl>::lookup(*this, key);
   }
-  void clearInline() override { inline_headers_.clear(); }
+  void clearInline() override { clearInlineHelper(); }
+  void clearInlineHelper() { memset(inline_headers_, 0, inlineHeadersSize()); }
 
-  AllInlineHeaders inline_headers_;
-
-  friend class HeaderMapImpl;
+  HeaderEntryImpl* inline_headers_[];
 };
 
-class ResponseTrailerMapImpl : public HeaderMapImpl, public ResponseTrailerMap {
+class ResponseTrailerMapImpl : public TypedHeaderMapImpl<ResponseTrailerMap>, public InlineStorage {
 public:
+  static std::unique_ptr<ResponseTrailerMapImpl> create() {
+    return std::unique_ptr<ResponseTrailerMapImpl>(new (inlineHeadersSize())
+                                                       ResponseTrailerMapImpl());
+  }
+
+  HeaderMap& toHeaderMap() override { return *this; }
+
   INLINE_RESP_HEADERS_TRAILERS(DEFINE_INLINE_HEADER_FUNCS)
 
-protected:
-  // Explicit inline headers for the response trailer map.
-  // TODO(mattklein123): This is mostly copied between all of the concrete header map types.
-  // In a future change we can either get rid of O(1) headers completely, or it should be possible
-  // to statically register all O(1) headers and move to a single dynamically sized class where we
-  // reference the O(1) headers in the table by an offset.
-  struct AllInlineHeaders {
-    AllInlineHeaders() { clear(); }
-    void clear() { memset(this, 0, sizeof(*this)); }
-
-    INLINE_RESP_HEADERS_TRAILERS(DEFINE_INLINE_HEADER_STRUCT)
-  };
+private:
+  ResponseTrailerMapImpl() { clearInlineHelper(); }
 
   absl::optional<StaticLookupResponse> staticLookup(absl::string_view key) override {
     return StaticLookupTable<ResponseTrailerMapImpl>::lookup(*this, key);
   }
-  void clearInline() override { inline_headers_.clear(); }
+  void clearInline() override { clearInlineHelper(); }
+  void clearInlineHelper() { memset(inline_headers_, 0, inlineHeadersSize()); }
 
-  AllInlineHeaders inline_headers_;
-
-  friend class HeaderMapImpl;
+  HeaderEntryImpl* inline_headers_[];
 };
 
 template <class T>
 std::unique_ptr<T>
 createHeaderMap(const std::initializer_list<std::pair<LowerCaseString, std::string>>& values) {
-  auto new_header_map = std::make_unique<T>();
-  HeaderMapImpl::initFromInitList(*new_header_map, values);
+  auto new_header_map = T::create();
+  HeaderMapImpl::initFromInitList(new_header_map->toHeaderMap(), values);
   return new_header_map;
 }
 

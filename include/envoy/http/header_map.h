@@ -14,6 +14,7 @@
 #include "common/common/assert.h"
 #include "common/common/hash.h"
 #include "common/common/macros.h"
+#include "common/common/phantom.h"
 
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/string_view.h"
@@ -638,11 +639,59 @@ public:
 using HeaderMapPtr = std::unique_ptr<HeaderMap>;
 
 /**
+ * fixfix
+ */
+template <class T> class CustomInlineHeaderRegistry {
+public:
+  using Handle = Phantom<size_t, T>;
+
+  static void registerInlineHeader(absl::string_view header_name) {
+    static size_t inline_header_index = 0;
+
+    ASSERT(!mutableFinalized());
+    auto entry = headerNameToIndex().find(header_name);
+    if (entry == headerNameToIndex().end()) {
+      headerNameToIndex()[header_name] = inline_header_index++;
+    }
+  }
+
+  static Handle getInlineHeader(absl::string_view header_name) {
+    ASSERT(mutableFinalized());
+    auto entry = headerNameToIndex().find(header_name);
+    if (entry != headerNameToIndex().end()) {
+      return entry->second;
+    }
+    ASSERT(false); // fixfix
+  }
+
+  static const absl::flat_hash_map<std::string, size_t>& headers() {
+    ASSERT(mutableFinalized());
+    return headerNameToIndex();
+  }
+
+  static void finalize() {
+    ASSERT(!mutableFinalized());
+    mutableFinalized() = true;
+  }
+
+private:
+  static absl::flat_hash_map<std::string, size_t>& headerNameToIndex() {
+    static absl::flat_hash_map<std::string, size_t> header_name_to_index;
+    return header_name_to_index;
+  }
+
+  static bool& mutableFinalized() {
+    static bool finalized;
+    return finalized;
+  }
+};
+
+/**
  * Typed derived classes for all header map types.
  */
 
 // Base class for both request and response headers.
-class RequestOrResponseHeaderMap : public virtual HeaderMap {
+class RequestOrResponseHeaderMap : public HeaderMap {
 public:
   INLINE_REQ_RESP_HEADERS(DEFINE_INLINE_HEADER)
 };
@@ -655,11 +704,11 @@ public:
 using RequestHeaderMapPtr = std::unique_ptr<RequestHeaderMap>;
 
 // Request trailers.
-class RequestTrailerMap : public virtual HeaderMap {};
+class RequestTrailerMap : public HeaderMap {};
 using RequestTrailerMapPtr = std::unique_ptr<RequestTrailerMap>;
 
 // Base class for both response headers and trailers.
-class ResponseHeaderOrTrailerMap : public virtual HeaderMap {
+class ResponseHeaderOrTrailerMap : public HeaderMap {
 public:
   INLINE_RESP_HEADERS_TRAILERS(DEFINE_INLINE_HEADER)
 };
@@ -672,8 +721,19 @@ public:
 using ResponseHeaderMapPtr = std::unique_ptr<ResponseHeaderMap>;
 
 // Response trailers.
-class ResponseTrailerMap : public virtual HeaderMap, public ResponseHeaderOrTrailerMap {};
+class ResponseTrailerMap : public ResponseHeaderOrTrailerMap {};
 using ResponseTrailerMapPtr = std::unique_ptr<ResponseTrailerMap>;
+
+// fixfix
+class CustomInlineHeaderUtility {
+public:
+  static void finalize() {
+    CustomInlineHeaderRegistry<RequestHeaderMap>::finalize();
+    CustomInlineHeaderRegistry<RequestTrailerMap>::finalize();
+    CustomInlineHeaderRegistry<ResponseHeaderMap>::finalize();
+    CustomInlineHeaderRegistry<ResponseTrailerMap>::finalize();
+  }
+};
 
 /**
  * Convenient container type for storing Http::LowerCaseString and std::string key/value pairs.
